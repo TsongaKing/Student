@@ -1,13 +1,11 @@
 package student;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Scanner;
+import java.io.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Enhanced Student Management System
- * @author phang
  * @version 2.0
  */
 public class Student implements Comparable<Student> {
@@ -15,10 +13,10 @@ public class Student implements Comparable<Student> {
     private static final int MIN_SCORE = 0;
     private static final int MAX_SCORE = 100;
     private static final int PASSING_SCORE = 50;
-    
+
     // Static counter for total students
     private static int totalStudents = 0;
-    
+
     // Instance variables
     private final int id;
     private String name;
@@ -33,7 +31,7 @@ public class Student implements Comparable<Student> {
         validateId(id);
         validateName(name);
         validateTestScore(testScore);
-        
+
         this.id = id;
         this.name = name;
         this.testScore = testScore;
@@ -68,27 +66,18 @@ public class Student implements Comparable<Student> {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         ArrayList<Student> students = new ArrayList<>();
+        loadStudents(students); // Load students from file
 
         try {
-            // Get number of students
-            System.out.print("Enter the number of students: ");
-            int numStudents = getValidIntInput(scanner, 1, 100);
-
             // Input data for each student
-            for (int i = 0; i < numStudents; i++) {
-                System.out.println("\nEnter details for student " + (i + 1) + ":");
-                students.add(createStudent(scanner));
-            }
-
-            // Display menu and process user choices
             boolean running = true;
             while (running) {
                 running = displayMenuAndProcessChoice(scanner, students);
             }
-
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
         } finally {
+            saveStudents(students); // Save students to file
             scanner.close();
         }
     }
@@ -98,33 +87,32 @@ public class Student implements Comparable<Student> {
      */
     private static boolean displayMenuAndProcessChoice(Scanner scanner, ArrayList<Student> students) {
         System.out.println("\nStudent Management System Menu:");
-        System.out.println("1. Display all students");
-        System.out.println("2. Search for a student");
-        System.out.println("3. Sort by ID");
-        System.out.println("4. Sort by name");
-        System.out.println("5. Sort by test score");
-        System.out.println("6. Show statistics");
-        System.out.println("7. Exit");
-        
-        int choice = getValidIntInput(scanner, 1, 7);
-        
+        System.out.println("1. Add Student");
+        System.out.println("2. Display all students");
+        System.out.println("3. Search for a student");
+        System.out.println("4. Update student information");
+        System.out.println("5. Sort by ID");
+        System.out.println("6. Sort by name");
+        System.out.println("7. Show statistics");
+        System.out.println("8. Exit");
+
+        int choice = getValidIntInput(scanner, 1, 8);
+
         switch (choice) {
-            case 1 -> displayStudents(students);
-            case 2 -> searchStudent(scanner, students);
-            case 3 -> {
+            case 1 -> addStudent(scanner, students);
+            case 2 -> displayStudents(students);
+            case 3 -> searchStudent(scanner, students);
+            case 4 -> updateStudent(scanner, students);
+            case 5 -> {
                 Collections.sort(students);
                 displayStudents(students);
             }
-            case 4 -> {
+            case 6 -> {
                 students.sort(Comparator.comparing(Student::getName));
                 displayStudents(students);
             }
-            case 5 -> {
-                students.sort(Comparator.comparing(Student::getTestScore).reversed());
-                displayStudents(students);
-            }
-            case 6 -> displayStatistics(students);
-            case 7 -> {
+            case 7 -> displayStatistics(students);
+            case 8 -> {
                 System.out.println("Goodbye!");
                 return false;
             }
@@ -133,20 +121,87 @@ public class Student implements Comparable<Student> {
     }
 
     /**
-     * Creates a new student with user input
+     * Adds a new student with user input
      */
-    private static Student createStudent(Scanner scanner) {
+    private static void addStudent(Scanner scanner, ArrayList<Student> students) {
         System.out.print("Student ID: ");
         int id = getValidIntInput(scanner, 1, Integer.MAX_VALUE);
-        
+
         scanner.nextLine(); // Consume newline
         System.out.print("Student Name: ");
         String name = scanner.nextLine().trim();
-        
+
         System.out.print("Test Score: ");
         int testScore = getValidIntInput(scanner, MIN_SCORE, MAX_SCORE);
-        
-        return new Student(id, name, testScore);
+
+        students.add(new Student(id, name, testScore));
+        System.out.println("Student added successfully.");
+    }
+
+    /**
+     * Update student information
+     */
+    private static void updateStudent(Scanner scanner, ArrayList<Student> students) {
+        System.out.print("Enter student ID to update: ");
+        int searchId = getValidIntInput(scanner, 1, Integer.MAX_VALUE);
+
+        Student student = students.stream()
+                .filter(s -> s.getId() == searchId)
+                .findFirst()
+                .orElse(null);
+
+        if (student != null) {
+            System.out.print("Enter new name (leave blank to keep current): ");
+            String newName = scanner.nextLine().trim();
+            if (!newName.isEmpty()) {
+                student.setName(newName);
+            }
+
+            System.out.print("Enter new test score (leave blank to keep current): ");
+            String scoreInput = scanner.nextLine().trim();
+            if (!scoreInput.isEmpty()) {
+                int newScore = Integer.parseInt(scoreInput);
+                student.setTestScore(newScore);
+            }
+
+            System.out.println("Student information updated successfully.");
+        } else {
+            System.out.println("Student not found.");
+        }
+    }
+
+    /**
+     * Load students from a file
+     */
+    private static void loadStudents(ArrayList<Student> students) {
+        try (BufferedReader br = new BufferedReader(new FileReader("students.txt"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(";");
+                if (parts.length == 3) {
+                    int id = Integer.parseInt(parts[0]);
+                    String name = parts[1];
+                    int score = Integer.parseInt(parts[2]);
+                    students.add(new Student(id, name, score));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading students: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Save students to a file
+     */
+    private static void saveStudents(ArrayList<Student> students) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter("students.txt"))) {
+            for (Student student : students) {
+                bw.write(student.getId() + ";" + student.getName() + ";" + student.getTestScore());
+                bw.newLine();
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving students: " + e.getMessage());
+        }
     }
 
     /**
@@ -217,16 +272,20 @@ public class Student implements Comparable<Student> {
                 .filter(Student::isPassed)
                 .count();
 
+        Map<String, Long> gradeDistribution = students.stream()
+                .collect(Collectors.groupingBy(Student::getGrade, Collectors.counting()));
+
         System.out.println("\nClass Statistics:");
         System.out.printf("Total Students: %d%n", students.size());
         System.out.printf("Average Score: %.2f%n", average);
         System.out.printf("Pass Rate: %.2f%%%n", (passCount * 100.0) / students.size());
+        System.out.println("Grade Distribution: " + gradeDistribution);
     }
 
     private static void searchStudent(Scanner scanner, ArrayList<Student> students) {
         System.out.print("Enter student ID to search: ");
         int searchId = getValidIntInput(scanner, 1, Integer.MAX_VALUE);
-        
+
         students.stream()
                 .filter(s -> s.getId() == searchId)
                 .findFirst()
